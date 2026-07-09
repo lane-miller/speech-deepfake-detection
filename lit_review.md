@@ -374,6 +374,43 @@
     - Ablations
         - heterogenous attn had most performance impact
         - MGO also important
+
+
+### 3. E2E Anti-Spoofing with RawNet2 - https://arxiv.org/pdf/2011.01108 - Tak et al
+#### [Architecture sections only: 2 & 3]
+
+**II Previous Work**
+- orig RawNet work for automatic speaker verification (ASV)
+- E2E defined as simultaneous and joint optim of every component in the model
+- RawNet architecture
+    - CNN that outputs speaker embeddings
+    - Operates on raw waveform
+    - Resid blocks used
+    - LSTM or GRUs used
+    - Completely unconstrained first layer slows training, hence SincNet learned BPF params
+- RawNet2
+    - SincNet -> ResBlocks -> GRU
+    - New: feature wise map scaling (FMS)
+        - attn mechanism whereby res block outputs passed through sigmoid
+    - Embedding dim increased from 128 to 1024 in RawNet2
+    - Cosine Similarity used for clf as opposed to DNN backend
+- Results show E2E architectures can improve ASV performance: can RawNet2 improve DFD?
+
+**III Application to Anti-Spoofing**
+- Modifications to RawNet2 for DFD:
+    - No layer norm on waveform inputs
+    - BPF params not learned..? 
+    - Filt length changed from 251 to 129
+    - Incr #filts to 512 in 2nd res block
+    - GRU (1024 nodes) -> FC -> softmax
+- Training:
+    - ADAM optim
+    - LR = 1e-4
+    - 100 epochs
+    - 32 mini batch size
+
+
+
 ---
 
 ## Synthesis
