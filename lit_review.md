@@ -376,8 +376,19 @@
         - MGO also important
 
 
-### 3. E2E Anti-Spoofing with RawNet2 - https://arxiv.org/pdf/2011.01108 - Tak et al
+### 3. E2E Anti-Spoofing with RawNet2 - https://arxiv.org/pdf/2011.01108 - Tak et al 2021
 #### [Architecture sections only: 2 & 3]
+
+**I Introduction**
+- Recent ASV Research:
+    - Artifacts from VC or TTS exist at subband level (low freqs?)
+    - High spectral res front ends help, even if paired with a simple backend clf
+    - e.g. A17 attack mode: artifacts captured but not detected if models trained on typical training data
+        - if trained on eval data, can detect
+- Can unseen attacks be detected without representative training data?
+- OC (one class) clf trained only on bona fide data
+    - successful broadly but still fail on ASVspoof 2019 data
+- Assumption is that non-hand crafted features help
 
 **II Previous Work**
 - orig RawNet work for automatic speaker verification (ASV)
@@ -408,6 +419,22 @@
     - LR = 1e-4
     - 100 epochs
     - 32 mini batch size
+
+### 4. Does Audio Deepfake Detection Generalize? - arXiv:2203.16263 - Muller et al 2026
+- Describes implementation of RawNet2 to DFD / anti-spoofing
+
+**I Introduction**
+- Recent ASV Research:
+    - Artifacts from VC or TTS exist at subband level (low freqs?)
+    - High spectral res front ends help, even if paired with a simple backend clf
+    - e.g. A17 attack mode: artifacts captured but not detected if models trained on typical training data
+        - if trained on eval data, can detect
+- Can unseen attacks be detected without representative training data?
+- OC (one class) clf trained only on bona fide data
+    - successful broadly but still fail on ASVspoof 2019 data
+- Assumption is that non-hand crafted features help
+
+
 
 
 
