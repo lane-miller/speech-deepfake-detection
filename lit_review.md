@@ -423,18 +423,123 @@
 ### 4. Does Audio Deepfake Detection Generalize? - arXiv:2203.16263 - Muller et al 2026
 - Describes implementation of RawNet2 to DFD / anti-spoofing
 
+**Abstract**
+- Why are successful models successful?
+- Authors do a systematic review of 12 architectures to
+    - find what contributes to success
+    - report on generalization 
+- New celeb deepfake dataset poses significant challenge to SOTA
+    - reserach to tied to ASVspoof?
+
 **I Introduction**
-- Recent ASV Research:
-    - Artifacts from VC or TTS exist at subband level (low freqs?)
-    - High spectral res front ends help, even if paired with a simple backend clf
-    - e.g. A17 attack mode: artifacts captured but not detected if models trained on typical training data
-        - if trained on eval data, can detect
-- Can unseen attacks be detected without representative training data?
-- OC (one class) clf trained only on bona fide data
-    - successful broadly but still fail on ASVspoof 2019 data
-- Assumption is that non-hand crafted features help
+- Rehash of abstract
 
+**II Related Work**
+**II.I Model Architectures**
+- Overview of models used for evaluation 
+- LSTM Models
+    - 3 LSTM layers -> linear layer -> avg over time dim => embedding
+- LCNN
+    - Light CNN: use max feat map activations
+    - Attn or LSTM also added
+- MesoNet
+    - From vid deepfakes
+    - 4 CNN layers -> BN -> MaxPool -> FC clf
+- MesoInception
+    - extension of above with inception blocks
+- ResNet18
+    - implementation of ResNet as expected (CNN + skips)
+- Transformer
+    - 4 self attention layers, 256 hidden dim + skips
+    - positional encodings for time
+- CRNNSpoof
+    - 1D conv + recurrent layers
+    - works directly on waveform, E2E
+- RawNet2
+    - E2E, uses SincNet
+- RawPC
+    - Also uses SincNet
+    - architecture determined by diff arch search
+- RawGAT-ST
+    - E2E graph attn network (predecessor to AASIST?)
 
+**III Datasets**
+- Training and Eval w ASVSpoof 2019 LA
+    - fakes are from 19 TTS algs
+- Authors also created dataset of celeb deepfakes + real found footage
+
+**IV Experimental Setup**
+**IV.I Training and Evaluation**
+**IV.I.I Hyperparams**
+- All models trained using
+    - CE loss
+    - Adam optim
+    - LR = 1e-4 w scheduler
+    - 100 epochs, early stopping patience = 5
+**IV.I.II Train/eval split**
+- Use train and dev for training (ASV dataset)
+- Eval: eval split from ASV and in the wild ITW (out of domain)
+
+**IV.I.III Evaluation Metrics**
+- EER and tDCF but only EER for ITW eval (tDCF req false alarm and miss cost)
+
+**IV.II Feature Extraction**
+- for models requiring preproc, spectrograms (513 dim) created and used from:
+    - constant Q transform: cqtspec
+    - log: logspec
+    - mel-scaled: mel-spec
+- Otherwise raw audio used as input
+
+**IV.III Audio Input Length**
+- Some models don't allow var input length
+    - global avg pool layer used to fix this (but goes on to describe fixed 4s inputs??)
+- 4 s fixed input length
+    - if longer, choose random 4s segment
+    - if shorter, repeat
+    - for eval, inputs always at least 4s
+
+**V Results**
+- Table 1 holds results
+- Models not fine tuned
+**V.I Fixed vs Var input length**
+- Fixed input length severely degrades performance
+- Recommended to input full audio examples
+**V.II Effects on Feat Extraction Techniques**
+- E2E (learn feat) > Hand Feat
+- For spec: cqt and log > mel (by a lot)
+**V.III Evaluation on ITW data**
+- Performance degrades wrt ASVspoof data by 200-1000%
+- Best model, RawNet2 retrained including eval data from ASVspoof -> no improvement on ITW
+
+### 5. ASVSpoof 5 ... - https://arxiv.org/pdf/2502.08857 - Wang et al 2025
+**Dataset/Partition Sections: 2.1, 2.2, 3, 5**
+**II.I Database Generation**
+- Earlier ASVspoof used VCTK (clean high quality conditions)
+- ASVspoof 5 uses MLS English dataset: ~5000 speakers in variety of acoustic environments
+    - Does this mean data augmentation not required for ASVspoof5?
+**II.II Database Partition**
+- Training Set
+    - 400 speakers
+    - 19k real utt, 164k fake utt
+    - fakes from 8 TTS/VC algs
+- Dev Set
+    - Subset 1
+        - 398 speakers (designated targets for ASV), 1-3 utt each
+        - 17k real utt, 110 fake utt
+        - fakes use TTS/VS algs diff from those used for train set
+    - Subset 2
+        - 387 non target speakers
+        - 14k real utt
+- Eval Set
+    - same structure as dev set
+    - 367 target speakers, 370 non target speakers
+    - real utt: 71k for target, 68k for non target
+    - 542k fakes gen using distinct algs not used in other sets
+    - All eval data treated with various lossy encoding
+
+- Questions:
+    - what kind of noise/artifacts exist in training and dev data?
+    - only codecs applied to eval? Why?
 
 
 
