@@ -545,10 +545,201 @@
 
 ---
 
-## Synthesis
 
-### Architectures
-### Loss Functions
-### Generalization & Dataset Shift
-### Evaluation Metrics & Protocols
-### Open Questions
+## Summary
+
+**Architecture**
+- E2E raw-waveform models consistently outperform hand-crafted/fixed-feature front ends (Li survey III.I.IV; Müller V.II) — supports the sinc-free 1D residual conv front-end decision.
+- Sinc-layer/SincNet remains common even in "E2E" work (RawNet2, AASIST, RawGAT-ST) but isn't clearly necessary — several E2E variants use plain multi-layer 1D conv instead (Li survey III.III), consistent with dropping it.
+- GAT-based models (AASIST, RawGAT-ST) top the leaderboards in both Li's survey and Müller's cross-model comparison — the architecture to beat, not necessarily to copy.
+- Best-performing clf designs tend to combine local + global pattern extraction (CNN/ResNet + GNN or Transformer ensembles) — relevant to the temporal aggregation decision (self-attention vs. GAT vs. Mamba).
+- Fixed 4s input length is standard across AASIST/RawNet2/Müller, but Müller found fixed-length severely degrades performance relative to variable-length input — worth flagging as a tension with the "standard 64,600-sample input" decision made for citability.
+
+**Data Augmentation**
+- Noise + codec augmentation showed the largest measured benefit in Li's survey (Table 5), but effectiveness is dataset- and feature-dependent — no universal recipe.
+- RawBoost improves reliability on ASVspoof2021 LA specifically (Li survey III.IV.I) — supports treating it as an ablation candidate rather than a default inclusion, especially since ASVspoof 5's more realistic MLS-based conditions may reduce its marginal value (open question, not yet resolved in current reading).
+- Combining multiple DA techniques is common practice; over-augmenting (e.g. SpecMix on 100% of data) can degrade performance — augmentation intensity itself is a tunable, not just augmentation type.
+- ASVspoof 5's eval set applies lossy encoding uniformly but train/dev partition treatment is unclear from the database paper — needs resolution before finalizing the augmentation plan (open question noted in section 5).
+
+**Loss Function**
+- OC-Softmax specifically called out (Li survey III.IV.II) as highly effective for generalizing to unseen attack types while resisting overfitting to known ones — directly relevant given ASVspoof 5's generalization gap problem and already in the planned ablation set.
+- Margin-based losses (AM-Softmax, OC-Softmax) target inter/intra-class variance directly, unlike plain CE — theoretical motivation for why they might help closing the generalization gap, not just raw EER.
+- Hybrid loss functions (e.g., CE + center loss) flagged as promising but underexplored — potential extension to the planned ablation beyond the four candidates already listed.
+
+**Generalization / Robustness**
+- Cross-dataset evaluation is a known failure mode: models trained on ASVspoof 2019 fail badly on out-of-domain data (ITW), partly attributed to channel effect mismatch (Li survey IV.V; Müller V.III, 200–1000% degradation).
+- Naive multi-dataset cotraining does not guarantee generalization — this tempers any assumption that just adding more training data (or datasets) fixes the ASVspoof 5 generalization gap.
+- This reinforces that the project's zero-shot WaveFake evaluation is a meaningful stress test, not a formality — consistent with existing project scope.
+
+**Open questions to resolve before architecture finalization**
+- Whether ASVspoof 5's realistic acoustic conditions reduce the marginal value of synthetic noise/reverb augmentation (raised in section 5, not yet answered by current reading — may need the ASVspoof 5 challenge overview paper for challenge-level consensus).
+- Whether fixed 4s input length materially hurts performance for this project's architecture, given Müller's finding — worth a quick empirical check rather than assuming AASIST's convention is optimal.
+- GNN internals (stack node, HS-GAL, MGO) still flagged as needing further understanding — noted as non-blocking per earlier discussion, since the project isn't replicating AASIST's graph structure directly.
+
+### Open Question Resolutions
+
+**Data augmentation**
+- ASVspoof 5's crowdsourced MLS source data already contains natural acoustic diversity (unlike VCTK-based prior editions), so train/dev don't need synthetic DA to simulate realism. Codecs are applied only to the eval set, as a robustness stress test.
+- Practitioners still use DA (RawBoost, MUSAN/RIR, codec aug) to close the train/eval mismatch, but results are mixed — no consensus.
+- **Decision:** treat DA as an ablation axis (none / RawBoost / codec / noise+reverb).
+
+**Fixed 4s input length**
+- Müller found fixed-length input hurts performance vs. variable-length; ASVspoof 5's longer avg. utterance (~10s vs. 3-5s) sharpens this concern. Standard practice uses a random 4s crop per epoch, not a static one.
+- **Decision:** keep 4s as primary for citability against AASIST-L/RawNet2
+
+---
+
+**Further consideration suggests**
+- most building most capable front end possible (SSL FE dropped in AASIST to replace from-scratch RawNet2-like FE dramatically improves EER)
+- audio-informed/focused model
+
+### 6. LEAF: A LEARNABLE FRONTEND FOR AUDIO CLASSIFICATION -  https://arxiv.org/pdf/2101.08596 - Zeghidour et al 2021
+
+**I Introduction**
+- Mel filterbanks standard in audio processing
+- perceptually motivated and convenient for ML but pose limitations
+- Audio FE 3 stages: filtering -> pooling -> compression/norm
+- Other learnable FEs exist but LEAF outperforms w just a few hundred params
+- LEAF generalizable to multiple audio tasks (models retrained and tested)
+- Propose an improvement to SincNet
+- 
+
+**II Related Work**
+- Early alternatives to mel filtbanks are heavy (multi layer) in comparison: lightweight alternative motivated here
+
+**II.I Learning from Waveforms**
+- Prev learnable filtbanks use: Sinc (BPF), Gammatone init, Scatter Transform (?), Gabor filt
+- Authors parameterize learnable complex valued Gabor filts
+    - no win func necessary
+    - squared mod brings signal back to real value while also performing hilbert xform (envelope extraction)
+- Unconstrained filters lead to overfitting + stability issues (authors solve this problem)
+
+**II.II Learning compression / normalization**
+- Not as much lit here
+- PCEN - per ch energy norm
+    - orig for keyword spotting
+    - outperforms log compression
+    - used in ASR and bioacoustics
+- proposed system is PCEN extension (learnable along with other stages)
+
+**III Model**
+- Filterbank & nonlin -> pooling (decimation) -> nonlin compression (dynamic range reduction) 
+- FE is in context of a wider clf model, so FE params and clf params learned E2E simultaneously
+
+**III.I Filtering**
+- Filters complex valued, length of W (is this learnabled param?)
+- Two methods: fully param conv filters, learnable Gabor filters
+- Using img processing terminology: "stride of 1", might mean convolution is actually correlation?
+
+**III.I.I Normalized 1D Conv**
+- First ver of filtering component: standard 1D conv init w bank of Gabor filters (approx mel filtbank)
+- Limitations:
+    - learn freq selection but also scaling (thus l2 norm applied to coefs before conv)
+    - High DOF lead to overfitting
+- Some level of parameterization can alleviate these issues (constrained parameterization)
+    - Maintain smoothness and interpretability
+
+**III.I.II Gabor 1D convolution**
+- Gabor = gaussian modulated by sinusoid
+- Pros:
+    - optimal tradeoff between time and freq localization
+    - interpretable since filters follow a function
+    - Quasi-analytic (freq reponse near 0 at negative freq?)
+    - Squared modulus brings back to real, env extraction mentioned earlier
+- Parameterization
+    - center freq and bandwidth (freq response is gaussian): both constrained
+    - seems like win length W fixed (25 ms at 16k = 401 samp)
+    - brings down param by 200x compared to fully parameterized (W * N vs 2 * N)
+
+**III.I.III Time Freq Analysis and Learnable Filters**
+- Learnable freq ranges can introduce freq axis scattering (no longer ordered freq axis in spectrogram)
+- Findings:
+    - ordered filters at init tend to stay ordered through training
+    - enforcing sorted filters has no effect on performance !!THIS IS BIG!!
+
+**III.II Learnable Lowpass Pooling**
+- Output of filtering stage = same temporal res as input signal
+- Pooling stage = decimation operation
+- Prev work tested max pooling, avg pooling, LPF
+    - LPF improved
+- In ResNet and DenseNet, maxPool or avgPool layers w fixed LPF help
+- This is all sounding very image processing-oriented...
+- Proposed method extends prev in 2 ways
+    - learnable LPF per channel (LPF implemented depth-wise)
+    - filters parameterized as Gaussians (Gabor) with fc=0 and learnable bandwidth
+- ?? Why LPF a signal that is the result of a BPF? ??
+- !! Idea: for learnable filterbank, if bandwidth is learnable constrain at something narrow, then implement band limited sampling based on this max bandwidth... likely 0 extra parameters needed, and seems like most aggressive way to reduce samples after splitting bands!!
+
+**III.II Learning Per-channel Compression and Normalization**
+- Prev work: log compression, 3rd root, 10th root,...
+- PCEN
+    - parameterized exponential moving avg filter w offset
+- This work uses channel-dependent learnabled smoothing (a PCEN param)
+    - called sPCEN
+- !!LEAF comprises: 1D Gabor bank -> Gaussian LPF pooling -> sPCEN!!
+    - so each channel gets the above treatment...
+    - this means a learned band-lim signal hits a learned LPF then a smoothing filter?
+        - where do we end up decimating? implementation of learned LPF for decimation doesn't say
+        - how does exp filt smoothing compress dynamic range? this seems more like another LPF
+
+**IV Experiments**
+- LEAF eval on single task clf, multi task clf, multi-label clf on AudioSet
+- Compare against similar structure implementation of mel filtbank, time domain filterbank, sincnet
+- common backbone, diff FE
+    - FE -> conv encoder -> FC clf "head(s)"
+    - conv encoder has multi million params: why do we care about how many params FE introduces is we're in the millions overall already?
+- Generally, 40 ch filt banks, 25ms filters (400 taps at 16kHz)
+- "The learnable pooling is computed over 401 samples with a stride of 160 samples (10 ms at 16 kHz), giving
+the same output dimension as mel-filterbanks" Okay so how does this translate into decimation?
+- 1s input lengths sampled from full inputs to address variable length - this likely hurt performance in some tasks
+
+**IV.I Single Task Audio Clf**
+- On Avg this method outperforms
+- !!Importantly, does not outperform SincNet for Speaker Identification!!
+
+**IV.II Multi Task Audio Clf**
+- diff head trained for each task? Not sure of difference
+- Improves performance on SpeakerID
+
+**IV.III Multi Label on AudioSet**
+- LEAF wins, not by much
+
+**IV.IV Analysis of learned filters, pooling, and compression**
+- Learned fc's don't really deviate much from Mel center freqs
+- Learned pooling filts do deviate from pure guassian init: mostly converge on larger bandwidth
+    - diff bandwidths confirm worth of depth-wise pooling (variable filts per chan)
+- Learned PCEN coefs all init at same value
+    - most learned slow mov avg except high freq
+    - root coefs also spread
+
+**IV.V Robustness to Noise**
+- LEAF and its components seemingly more robust to noise than other FE components mentioned here
+
+**V Conclusion**
+- Authors plan to further remove hand-crafted biases
+    - learnable filter length and stride
+    - ??what does stride mean here if we're literally convolving filter kernel with input signal??
+        - sounds more like CNN image processing "convolution"
+
+**Summary from LEAF paper**
+
+- LEAF replaces all three stages of classical audio feature extraction (filtering, pooling, compression/normalization) with fully learnable counterparts, in contrast to SincNet (learnable filtering only) or fixed mel-filterbanks.
+- Key design constraint: parameterize filters (Gabor: center freq + bandwidth) rather than fully free convolutional kernels — cuts parameter count ~200x vs. unconstrained filters and avoids overfitting/instability.
+- Decimation happens at the pooling stage via strided depthwise convolution (LPF + subsampling in one operation) — not at compression (PCEN).
+- PCEN's smoothing filter performs adaptive gain normalization; actual dynamic-range compression comes from the exponent/root terms applied afterward.
+- Learned filters stay frequency-ordered without explicit constraint, and enforcing order has no measurable effect on performance — suggests less hand-imposed structure is needed than assumed.
+- LEAF does not universally win: underperforms SincNet specifically on speaker ID in single-task setting, only closes/reverses that gap in multi-task training — frontend performance is task-dependent, not a uniform ranking.
+- Robustness to noise reported as a strength relative to other frontends tested.
+- Uses 1s fixed input length for variable-length handling — same class of limitation flagged by Müller for fixed-length inputs elsewhere in this project's lit review.
+
+**Addressing Questions from LEAF paper**
+
+- "Stride of 1... convolution is actually correlation?"** — Yes. Standard deep learning "convolution" layers (including here) don't flip the kernel, so they're mathematically cross-correlation. True of virtually all frameworks, not LEAF-specific.
+- "Why LPF a signal that is the result of a BPF?"** — Different purpose, not redundant. The Gabor BPF selects a frequency band; the subsequent LPF is a standard anti-aliasing filter applied before temporal decimation of the resulting envelope signal, not a second frequency-selection step.
+- "Idea: band-limited sampling based on learnable bandwidth"** — legitimate and distinct from what LEAF does. LEAF's pooling is conventional baseband lowpass + decimation; it does not exploit the bandpass sampling theorem to intentionally alias content, unlike the aggressive sample-reduction idea explored earlier in this project's own design discussion. Worth noting as a genuine potential extension beyond LEAF, not something already implemented here.
+- "How does exp filter smoothing compress dynamic range?"** — It doesn't directly; the moving-average smoothing (M(t)) is for adaptive normalization/gain control. Actual compression is applied via the exponent (α) and root (r) terms in the PCEN formula, after normalization.
+- "Where do we end up decimating?"** — At the pooling stage. The quoted stride-160-samples detail is the decimation step (implemented jointly with the Gaussian LPF as one strided depthwise conv). PCEN operates on already-decimated frames and does not decimate further.
+- "Why care about FE params if conv encoder is millions of params already?"** — Valid in LEAF's own context (frontend is a negligible fraction of total budget there). Far more consequential for this project, where total target param count (~85K) makes frontend parameter economy a first-order design constraint rather than a rounding error.
+- "What does stride mean if we're literally convolving?"** — Same meaning as in any strided CNN layer: number of samples skipped between successive kernel evaluations. No difference in terminology between this and standard image-processing convolution usage.
+
+
