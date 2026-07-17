@@ -7,13 +7,18 @@
 
 ### 1. Front End — Partial Polynomial Chirplet Decomposition (PPCD) + Band-Limited Resample (BLR)
 - Primary contribution and main ablation focus of the project
-- Per-channel learnable chirplet kernel (f1, f2, T, degree p), generated fresh each forward pass, kernel flipped before `F.conv1d` to preserve f1→f2 sweep-direction interpretability
-- Per-channel adaptive FIR (windowed-sinc) bandpass filter, generated from current f1/f2, applied before band-limited resampling to prevent aliasing
+- Per-channel learnable chirplet kernel, generated fresh each forward pass, kernel flipped before `F.conv1d` to preserve sweep-direction interpretability
+- **Ablation — kernel complexity (core novelty axis, high priority):**
+  - **Single-term (baseline variant):** one polynomial term sweeping monotonically f1→f2 over window T, with a single learnable power/shape parameter (original PPCD concept) — cheap, maximally interpretable, forces spectrotemporal movement to be captured piecewise across channels
+  - **Multi-term:** fixed number of polynomial terms, each with independently learnable, constrained amplitude and power — more expressive per-channel (can represent non-monotonic IF trajectories), less parameter-economical and less interpretable per channel, real overfitting/instability risk (per-term constraints load-bearing, not optional)
+  - Single-term to be implemented and validated first as a working baseline; multi-term must outperform it to justify added complexity
+  - Interacts with channel count (see below) — multi-term's flexibility may allow fewer channels for equivalent expressiveness; test jointly, not in isolation
+- Per-channel adaptive FIR (windowed-sinc) bandpass filter, generated from current f1/f2 (or full multi-term IF extent), applied before band-limited resampling to prevent aliasing
 - Complex demodulation (shift to baseband at channel center frequency) + lowpass + decimate; real and imaginary parts (I/Q) kept and concatenated as separate channels (not collapsed to magnitude) — preserves phase information, relevant given literature flags phase as a spoofing-relevant cue
 - Shared, fixed max-BW-based decimation rate across all channels → all channel outputs sample-matched by construction
 - **Ablation:** number of channels × nominal channel bandwidth (BW), tested as paired configs targeting similar total post-resample sample counts — tests resolution/coverage tradeoff at roughly fixed compute budget
-- **Fixed, constrained (not ablated):** f1/f2 bounds (avoid 0 Hz and Nyquist), T range (10–100ms, physically motivated per speech literature), degree p lower bound (0.5); p upper bound TBD empirically via worst-case leakage sweep
-- **Fixed, resolved via empirical sweep (not a live ablation):** guard-band margin for the adaptive BPF and resample bandwidth (BW'), determined by grid-sweeping parameter extremes and measuring worst-case spectral leakage, once p's upper bound is set
+- **Fixed, constrained (not ablated):** f1/f2 bounds (avoid 0 Hz and Nyquist), T range (10–100ms, physically motivated per speech literature), degree/power lower bound (0.5); upper bound TBD empirically via worst-case leakage sweep
+- **Fixed, resolved via empirical sweep (not a live ablation):** guard-band margin for the adaptive BPF and resample bandwidth (BW'), determined by grid-sweeping parameter extremes and measuring worst-case spectral leakage, once degree/power upper bound is set (separate sweep needed for multi-term variant, given added parameters)
 
 ### 2. Per-Channel Normalization
 - **Ablation:** none / layer norm / learned dynamic-range compression (PCEN-like, LEAF-inspired)
@@ -22,11 +27,10 @@
 ### 3. Encoder — CNN
 - Standard conv stack over PPCD+BLR output, learned local/spectral-adjacent feature extraction
 - Not a primary ablation target initially — conventional, proven component; revisit only if front-end ablations are inconclusive
-- Init plan: inception net style (capture mult filter sizes before compression); add bottleneck(s) as necessary
 
 ### 4. Temporal Aggregation
 - Simple self-attention (or lightweight Mamba, for comparison) over encoder output
-- **Ablation:** self-attention vs. Mamba/SSM — secondary comparison, not the project's main contribution, informed by today's discussion that the sequence-block choice is less consequential than front-end quality
+- **Ablation:** self-attention vs. Mamba/SSM — secondary comparison, not the project's main contribution
 - Not over-engineered — conventional/proven components preferred here so effort stays concentrated on Section 1
 
 ### 5. Aggregation / Pooling
@@ -51,18 +55,19 @@
 ---
 
 **Ablation order:**
-1. Front-end channel count × BW (paired to similar total sample counts)
-2. Per-channel normalization (none / layer norm / learned PCEN-like)
-3. Temporal aggregation (self-attention vs. Mamba)
-4. Aggregation/pooling
-5. Pre-front-end downsampling
-6. Loss function (individual candidates)
-7. Loss function (combination)
-8. Data augmentation
+1. Front-end kernel complexity (single-term vs. multi-term chirplet)
+2. Front-end channel count × BW (paired to similar total sample counts; tested jointly with #1 where feasible, given interaction)
+3. Per-channel normalization (none / layer norm / learned PCEN-like)
+4. Temporal aggregation (self-attention vs. Mamba)
+5. Aggregation/pooling
+6. Pre-front-end downsampling
+7. Loss function (individual candidates)
+8. Loss function (combination)
+9. Data augmentation
 
 **Dropped (not parked — premise no longer holds):**
-- Band correlation block (Branch B) and all associated sub-ablations (mode, pairing, max_lag/chunk_size, alignment, attention-on-correlation-output) — motivating rationale (cheap/interpretable sequence-block replacement) superseded by literature evidence that front-end quality, not sequence-block design, drives the largest gains in this space
-- Branch A / Branch B fusion — no longer applicable, no second branch to fuse
+- Band correlation block and all associated sub-ablations — motivating rationale (cheap/interpretable sequence-block replacement) superseded by literature evidence that front-end quality, not sequence-block design, drives the largest gains in this space
+- Branch A / Branch B fusion — no longer applicable
 
 **Parked (not dropped, deprioritized):**
 - Shorter input length (<4s) — side quest, forfeits literature comparability, separate from main results
