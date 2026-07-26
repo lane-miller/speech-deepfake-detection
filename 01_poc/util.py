@@ -17,6 +17,7 @@ MAX_DUR_MS = 100
 MIN_DUR_MS = 10
 MAX_DEGREE = 3
 MIN_DEGREE = 0.5
+FS = 16000
 
 # pchirp - single term polynomial chirplet
 def pchirp(freq1, freq2, duration_ms, degree):
@@ -63,4 +64,7 @@ def pick_val(lower_bnd, upper_bnd):
 
 # Get lower and upper band lims from fc and and bw
 def bw_fc_to_f1f2(bw, fc):
-    return fc - bw / 2, fc + bw / 2
+    f1, f2 =  fc - bw / 2, fc + bw / 2
+    if np.random.rand() < 0.5:
+        f1, f2 = f2, f1
+    return f1, f2
