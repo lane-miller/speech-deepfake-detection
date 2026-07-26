@@ -20,7 +20,6 @@
 
 ### POC4 — BPF, spectral leakage, and I/Q
 - Empirical worst-case spectral leakage sweep (across finalized f1/T/degree ranges) to size the BPF guard-band margin
-- Adaptive per-channel bandpass filter generation
 - Complex demodulation
 - I/Q output inspection (envelope and phase)
 
