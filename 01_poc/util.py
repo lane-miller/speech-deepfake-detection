@@ -9,7 +9,7 @@ from scipy.integrate import cumulative_trapezoid as cti
 
 # Chirp constraint constants
 MIN_RATIO = 1.414  # sqrt(2), i.e. 1/2 octave minimum sweep
-MAX_BW = 2000
+MAX_BW = 1900
 MIN_BW = 200
 MAX_FREQ = 7000
 MIN_FREQ = 50
