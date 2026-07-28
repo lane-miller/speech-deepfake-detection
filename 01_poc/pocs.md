@@ -27,6 +27,7 @@
 - Confirm no obvious aliasing vs. expected band
 
 ### POC5 — Compute/timing sanity check
+- Build realistic frontend
 - Time one forward pass through the front end at target channel count
 - Catch any accidentally expensive operation before committing to full training runs
 

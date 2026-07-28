@@ -12,7 +12,7 @@ MIN_RATIO = 1.414  # sqrt(2), i.e. 1/2 octave minimum sweep
 MAX_BW = 1900
 MIN_BW = 200
 MAX_FREQ = 7000
-MIN_FREQ = 50
+MIN_FREQ = 100
 MAX_DUR_MS = 100
 MIN_DUR_MS = 10
 MAX_DEGREE = 3
@@ -68,3 +68,8 @@ def bw_fc_to_f1f2(bw, fc):
     if np.random.rand() < 0.5:
         f1, f2 = f2, f1
     return f1, f2
+
+
+# Sigmoid parameter squashing/mapping
+def sigmoid_squash(theta, lo, hi):
+    return lo + (hi - lo) * torch.sigmoid(theta)
