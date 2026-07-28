@@ -22,22 +22,20 @@
 - Empirical worst-case spectral leakage sweep (across finalized f1/T/degree ranges) to size the BPF guard-band margin
 - Complex demodulation
 - I/Q output inspection (envelope and phase)
-
-### POC5 — End-to-end front-end pipeline check
-- One real utterance through chirplet conv → BPF → complex demodulation → decimate
+- One real utterance through chirplet conv → BLR
 - Confirm output sample count matches `duration × BW`
 - Confirm no obvious aliasing vs. expected band
 
-### POC6 — Compute/timing sanity check
+### POC5 — Compute/timing sanity check
 - Time one forward pass through the front end at target channel count
 - Catch any accidentally expensive operation before committing to full training runs
 
-### POC7 — Gradient flow check
+### POC6 — Gradient flow check
 - Toy front end + minimal encoder/head + dummy loss
 - Confirm f1/f2/T/degree (or their underlying raw/reparameterized params) all receive gradients
 - Confirm nothing silently detached in the custom kernel-generation code
 
-### POC8 — Init robustness check *(not an ablation)*
+### POC7 — Init robustness check *(not an ablation)*
 - Constraints enforced structurally in the parameterization (soft reparameterization — sigmoid/softplus — rather than hard clamping, per established preference)
 - Confirm a handful of random draws within the valid range don't produce NaN/inf, near-zero kernel energy, or dead gradients
 - Explicitly scoped as a sanity check, not a comparison of init strategies
