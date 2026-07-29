@@ -6,6 +6,7 @@ Utility functions for POC
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import cumulative_trapezoid as cti
+import torch
 
 # Chirp constraint constants
 MIN_RATIO = 1.414  # sqrt(2), i.e. 1/2 octave minimum sweep
@@ -69,6 +70,36 @@ def bw_fc_to_f1f2(bw, fc):
         f1, f2 = f2, f1
     return f1, f2
 
+# Helper method - compute actual bandwidth of signal
+#  - finds X dB down frequencies in response, where X is threshold compared to 0 dB
+def get_bw_actual(signal, threshold_dB, samplerate=16000):
+    f = np.fft.rfftfreq(len(signal), 1. / FS)
+    x = np.fft.rfft(signal)
+    X = 20 * np.log10(np.abs(x) + 1e-12)
+    X -= np.max(X)
+    idx = np.argmax(X)
+
+    if np.min(X[:idx]) > threshold_dB:
+        # print("Left side of fc did not reach threshold")
+        return (np.nan, np.nan)
+    if np.min(X[idx:]) > threshold_dB:
+        # print("Right side of fc did not reach threshold")
+        return (np.nan, np.nan)
+        
+    i = idx
+    a = 0
+    while i > 0 and a > threshold_dB:
+        i -= 1
+        a = X[i]
+    f1 = f[i]
+    i = idx
+    a = 0
+    while i < len(f) and a > threshold_dB:
+        i += 1
+        a = X[i]
+    f2 = f[i]
+
+    return (f1, f2)
 
 # Sigmoid parameter squashing/mapping
 def sigmoid_squash(theta, lo, hi):
