@@ -35,8 +35,3 @@
 - Toy front end + minimal encoder/head + dummy loss
 - Confirm f1/f2/T/degree (or their underlying raw/reparameterized params) all receive gradients
 - Confirm nothing silently detached in the custom kernel-generation code
-
-### POC7 — Init robustness check *(not an ablation)*
-- Constraints enforced structurally in the parameterization (soft reparameterization — sigmoid/softplus — rather than hard clamping, per established preference)
-- Confirm a handful of random draws within the valid range don't produce NaN/inf, near-zero kernel energy, or dead gradients
-- Explicitly scoped as a sanity check, not a comparison of init strategies
