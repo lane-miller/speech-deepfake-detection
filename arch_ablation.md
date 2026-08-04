@@ -13,7 +13,6 @@
   - **Multi-term:** fixed number of polynomial terms, each with independently learnable, constrained amplitude and power — more expressive per-channel (can represent non-monotonic IF trajectories), less parameter-economical and less interpretable per channel, real overfitting/instability risk (per-term constraints load-bearing, not optional)
   - Single-term to be implemented and validated first as a working baseline; multi-term must outperform it to justify added complexity
   - Interacts with channel count (see below) — multi-term's flexibility may allow fewer channels for equivalent expressiveness; test jointly, not in isolation
-- Per-channel adaptive FIR (windowed-sinc) bandpass filter, generated from current f1/f2 (or full multi-term IF extent), applied before band-limited resampling to prevent aliasing
 - Complex demodulation (shift to baseband at channel center frequency) + lowpass + decimate; real and imaginary parts (I/Q) kept and concatenated as separate channels (not collapsed to magnitude) — preserves phase information, relevant given literature flags phase as a spoofing-relevant cue
 - Shared, fixed max-BW-based decimation rate across all channels → all channel outputs sample-matched by construction
 - **Ablation:** number of channels × nominal channel bandwidth (BW), tested as paired configs targeting similar total post-resample sample counts — tests resolution/coverage tradeoff at roughly fixed compute budget
