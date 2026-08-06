@@ -6,6 +6,7 @@ Encoder classes: CNN, Self-Attention, Classification Head
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from dnn.util import complex_to_stacked
 
@@ -103,5 +104,53 @@ class Encoder(nn.Module):
         """
         for block in self.blocks:
             x = block(x)
+
+        return x
+
+
+
+# Self-Attention Block
+class SelfAttention(nn.Module):
+    """
+    Single self-attention block with sinusoidal positional encoding.
+
+    Since attention alone has no notion of sequence order (it's permutation-
+    equivariant), a fixed positional encoding is added to the input before
+    attention, so the model can distinguish "early in the sequence" from
+    "late in the sequence." Followed by a residual connection and layer
+    norm, standard transformer-block pattern.
+
+    Positional encoding is precomputed for the sequence length once, at
+    construction time, and does not require gradients (registered as a
+    buffer, not a learnable parameter).
+    """
+
+    def __init__(self, embed_dim, num_heads, max_len):
+        super().__init__()
+
+        # positional encoding (uses embed_dim, max_len)
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, embed_dim, 2) * (-np.log(10000.0) / embed_dim))
+        pe = torch.zeros(max_len, embed_dim)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+        # attention block (uses embed_dim, num_heads)
+        self.attn = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.norm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x):
+        """
+        x: [batch, channels, seq_len]  (channel-first, matching Encoder's output)
+
+        forward pass: transpose to [batch, seq_len, channels] for attention,
+        add positional encoding, self-attend, residual + norm, transpose back
+        """
+        x = x.transpose(1, 2)             # [B, C, L] -> [B, L, C]
+        x = x + self.pe[:x.shape[1]]      # add positional encoding
+        attn_out = self.attn(x, x, x)[0]  # self-attention
+        x = self.norm(x + attn_out)       # residual + layer norm
+        x = x.transpose(1, 2)             # [B, L, C] -> [B, C, L], back to channel-first
 
         return x
